@@ -1,0 +1,23 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This is the first template I made, which is an S3 bucket
+Resources:
+  JustinFirstS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: first-bucket-demo-2342387
+  JustinEc2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0277155c3f0ab2930
+      InstanceType: t2.micro
+  JustinVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: True
+      Tags: 
+       - Key: Name
+         Value: Banking 
+
+  
