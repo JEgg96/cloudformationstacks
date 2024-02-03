@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This is a template containing EC2, S3, VPC, along with parameters and Metadata."
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Compute Configuration"
+        Parameters:
+          - EC2AMIID
+          - InstanceTypeParameterJEJustin
+      - Label:
+          default: "Storage Configuration"
+        Parameters:
+          - S3BucketNameJEJustin
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - vpccidr
+          - subnetcidr
+
+Parameters:
+  vpccidr:
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedValues:
+      - 10.0.0.0/16
+      - 10.0.0.0/24
+    Description: "CIDR Block VPC ranges."
+
+  subnetcidr:
+    Type: String
+    Default: 10.0.0.0/24
+    AllowedValues:
+      - 10.0.0.0/22
+      - 10.0.0.0/24
+    Description: "Subnet CIDR ranges."
+
+  EC2AMIID:
+    Type: String
+    Default: ami-0277155c3f0ab2930
+    AllowedValues:
+      - ami-0277155c3f0ab2930
+      - ami-00d990e7e5ece7974
+      - ami-0fe630eb857a6ec83
+    Description: "Enter ami-0277155c3f0ab2930, ami-00d990e7e5ece7974, or ami-0fe630eb857a6ec83. Default is ami-0277155c3f0ab2930."
+
+  InstanceTypeParameterJEJustin:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+    Description: "Enter t2.micro or t2.small. Default is t2.micro."
+
+  S3BucketNameJEJustin:
+    Type: String
+    Description: "S3 bucket name."
+
+Resources:
+  JustinFirstS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketNameJEJustin
+      Tags:
+        - Key: Name
+          Value: Banking
+
+  JustinEc2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref EC2AMIID
+      InstanceType: !Ref InstanceTypeParameterJEJustin
+      SubnetId: !Ref bankingsubnet
+      Tags:
+        - Key: Name
+          Value: Banking
+
+  JustinVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref vpccidr
+      EnableDnsHostnames: True
+      Tags:
+        - Key: Name
+          Value: Banking
+
+  bankingsubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Ref subnetcidr
+      Tags:
+        - Key: Name
+          Value: Banking
+      VpcId: !Ref JustinVPC
