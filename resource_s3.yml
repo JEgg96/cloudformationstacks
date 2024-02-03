@@ -1,0 +1,8 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This is the first template I made, which is an S3 bucket
+Resources:
+  JustinFirstS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: first-bucket-demo-2342387
