@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template creates an auto scaling group.
+
+Parameters:
+  ImageID: 
+    Type: String
+    Default: ami-0277155c3f0ab2930
+
+  InstanceType: 
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+      - m1.large
+    Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.    
+
+Resources:
+  WebserverLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref ImageID
+      InstanceType: !Ref InstanceType
+      LaunchConfigurationName: WebserverConfiguration
+      UserData: 
+        Fn::Base64: 
+          !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd.x86_64
+            systemctl start httpd.service
+            systemctl enable httpd.service
+            echo Hello from Udemy Cloudformation course with Rahul $(curl http://169.254.169.254/latest/meta-data/public-ipv4)? > /var/www/html/index.html
+
+  WebserverAutoScale:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: RahulASG
+      AvailabilityZones: 
+        - us-east-1a
+        - us-east-1b
+      DesiredCapacity: 2 
+      LaunchConfigurationName: !Ref WebserverLaunchConfiguration
+      MaxSize: 2
+      MinSize: 1
+      TargetGroupARNs: 
+        - !Ref ApplicationLoadBalancerTargetGroup
+      VPCZoneIdentifier: 
+        - subnet-0eb87617710b100e0
+        - subnet-068cc54f19ceb2b6c
+
+  AppLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: RahulAppLoadBalancer
+      Subnets: 
+        - subnet-0eb87617710b100e0
+        - subnet-068cc54f19ceb2b6c
+      Type: application
+
+  ApplicationLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: 
+        - TargetGroupArn: !Ref ApplicationLoadBalancerTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref AppLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      
+  ApplicationLoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: vpc-0b19772228a1b695a
+
+# CloudWatch Log Group
+  HostedZoneCloudWatchLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/route53/webapp
+      RetentionInDays: 1
+
+# SNS
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Alerts!
+
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: jegbufoama@gmail.com
+      Protocol: email
+      TopicArn: !Ref SNSTopic
+
+# Hosted Zone
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: rahultrisal.com
+
+# Resource Records          
+  ResourceRecords:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: rahultrisal.com.
+      Name: blog.rahultrisal.com.
+      ResourceRecords: 
+        - !GetAtt AppLoadBalancer.DNSName
+      TTL: '900'
+      Type: CNAME
+
+  LogPolicy:
+    Type: AWS::Logs::ResourcePolicy
+    Properties:
+      PolicyName: LogResourcePolicy
+      PolicyDocument: !Sub 
+        - |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "Route53LogsToCloudWatchLogs",
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "route53.amazonaws.com"
+                  ]
+                },
+                "Action": [
+                  "logs:CreateLogStream",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/route53/*"
+              }
+            ]
+          }
+        - {}
+
+# CloudWatch Alarm
+  WebCloudwatchAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmActions: 
+        - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:SNSTopic'
+      AlarmDescription: This alarm is triggered when the EC2 reaches the CPU threshold
+      AlarmName: RahulCWAlarm
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      MetricName: CPUUtilization
+      Dimensions: 
+        - Name: ASG
+          Value: !Ref WebserverAutoScale
+      EvaluationPeriods: 1
+      Namespace: AWS/EC2
+      Period: 300
+      Statistic: Maximum
+      Threshold: 2
+      TreatMissingData: breaching
